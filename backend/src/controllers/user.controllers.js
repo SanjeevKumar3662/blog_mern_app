@@ -1,14 +1,14 @@
 import { User } from "../models/user.models.js";
 import jwt from "jsonwebtoken";
 
-export const generateAccessToken = async (user) => {
-  return jwt.sign(user, process.env.ACCESS_KEY_SECRET, {
+export const generateAccessToken = (payload) => {
+  return jwt.sign(payload, process.env.ACCESS_KEY_SECRET, {
     expiresIn: process.env.ACCESS_KEY_EXPIRY,
   });
 };
 
-export const generateRefreshToken = async (user) => {
-  return jwt.sign(user, process.env.REFRESH_KEY_SECRET, {
+export const generateRefreshToken = (payload) => {
+  return jwt.sign(payload, process.env.REFRESH_KEY_SECRET, {
     expiresIn: process.env.REFRESH_KEY_EXPIRY,
   });
 };
@@ -43,22 +43,49 @@ export const registerUser = async (req, res) => {
 };
 
 export const loginUser = async (req, res) => {
-  const { username, password } = req.body;
+  try {
+    const { username, password } = req.body;
 
-  if (!(username && password)) {
+    if (!(username && password)) {
+      return res
+        .status(400)
+        .json({ error: "Either/both username or password not received" });
+    }
+
+    const user = await User.findOne({ username });
+
+    if (!user) {
+      return res.status(400).json({ error: "User not found/exist" });
+    }
+
+    const accessToken = generateAccessToken({
+      _id: user._id,
+      username: user.username,
+    });
+    const refreshToken = generateRefreshToken({
+      _id: user._id,
+      username: user.username,
+    });
+    console.log({ refreshToken, accessToken });
+
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    //set user cookies
     return res
-      .status(400)
-      .json({ error: "Either/both username or password not received" });
+      .status(200)
+      .cookie("accessToken", accessToken, { maxAge: 15 * 60 * 1000 }) // exp for 15m but for test 60s
+      .cookie("refreshToken", refreshToken, {
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      }) // exp for 30days
+      .json({
+        message: `${user.username} has logged in successfully`,
+      });
+  } catch (error) {
+    console.error({ error: error.message });
+    return res.status(500).json({
+      message: "Error occured while logging in user/ please try later",
+      error: error.message,
+    });
   }
-
-  const user = await User.findOne({ username });
-
-  if (!user) {
-    return res.status(400).json({ error: "User not found/exist" });
-  }
-
-  //set user cookies
-  return res
-    .status(200)
-    .json({ message: `${user.username} has logged in successfully` });
 };
