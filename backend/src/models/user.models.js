@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import bcrypt from "bcrypt";
 
 const userSchema = new mongoose.Schema(
   {
@@ -28,5 +29,15 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+userSchema.pre("save", async function () {
+  // this will not work for findOneAndUpdate , so don't use that
+  const isModified = this.isModified("password");
+  if (!isModified) {
+    return;
+  }
+
+  this.password = await bcrypt.hash(this.password, 10);
+});
 
 export const User = mongoose.model("User", userSchema);
