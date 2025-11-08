@@ -1,6 +1,6 @@
 import { User } from "../models/user.models.js";
 import jwt from "jsonwebtoken";
-
+import bcrypt from "bcrypt";
 export const generateAccessToken = (payload) => {
   return jwt.sign(payload, process.env.ACCESS_KEY_SECRET, {
     expiresIn: process.env.ACCESS_KEY_EXPIRY,
@@ -52,10 +52,15 @@ export const loginUser = async (req, res) => {
         .json({ error: "Either/both username or password not received" });
     }
 
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ username }).select("+password");
 
     if (!user) {
       return res.status(400).json({ error: "User not found/exist" });
+    }
+
+    const passwordCompare = await bcrypt.compare(password, user.password);
+    if (!passwordCompare) {
+      return res.status(401).json({ error: "Invalid password" });
     }
 
     const accessToken = generateAccessToken({
@@ -66,7 +71,7 @@ export const loginUser = async (req, res) => {
       _id: user._id,
       username: user.username,
     });
-    console.log({ refreshToken, accessToken });
+    // console.log({ refreshToken, accessToken });
 
     user.refreshToken = refreshToken;
     await user.save();
