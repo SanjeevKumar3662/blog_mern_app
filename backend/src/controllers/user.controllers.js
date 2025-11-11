@@ -1,6 +1,8 @@
 import { User } from "../models/user.models.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import { ApiError } from "../utils/apiError.js";
+import { ApiResponse } from "../utils/apiResponse.js";
 
 export const generateAccessToken = (payload) => {
   // console.log("playlod", payload);
@@ -18,20 +20,18 @@ export const generateRefreshToken = (payload) => {
 export const refreshExpiredAccessToken = async (req, res) => {
   const inputRefreshToken = req.cookies?.refreshToken;
   if (!inputRefreshToken) {
-    return res.status(401).json({ error: "No refreshToken not received" });
+    throw new ApiError(401, "No refreshToken received");
   }
 
   const user = await User.findOne({ refreshToken: inputRefreshToken });
   if (!user) {
-    return res.status(401).json({ error: "Unauthorised request" });
+    throw new ApiError(401, "Invalid refreshToken");
   }
 
-  const isTokenValid = jwt.verify(
-    inputRefreshToken,
-    process.env.REFRESH_KEY_SECRET
-  );
-  if (!isTokenValid) {
-    return res.status(401).json({ error: "token expired or not valid" });
+  try {
+    jwt.verify(inputRefreshToken, process.env.REFRESH_KEY_SECRET);
+  } catch (error) {
+    throw new ApiError(401, "Token expired or not valid", error.message);
   }
   //console.log("in refreshExpiredAccessToken", { isTokenValid });
   //console.log("user", user);
@@ -40,92 +40,78 @@ export const refreshExpiredAccessToken = async (req, res) => {
     _id: user._id,
     username: user.username,
   });
+
   return res
     .status(201)
     .cookie("accessToken", newAccessToken, {
       maxAge: 15 * 60 * 1000,
     })
-    .json({ message: "accessToken refreshed" });
+    .json(new ApiResponse(201, "accessToken refreshed"));
 };
 
 export const registerUser = async (req, res) => {
-  try {
-    const { username, fullname, password, email } = req.body;
-    console.log({ username, fullname, password, email });
+  const { username, fullname, password, email } = req.body;
+  // console.log({ username, fullname, password, email });
 
-    if (!(username && fullname && password && email)) {
-      return res
-        .status(400)
-        .json({ error: "Either username,password,or email is not received" });
-    }
-    const user = await User.create({ username, fullname, email, password });
-
-    if (!user) {
-      return res
-        .status(500)
-        .json({ error: "Error occured while registering user to DB" });
-    }
-
-    return res
-      .status(201)
-      .json({ message: "User registeration is successful" });
-  } catch (err) {
-    console.error({ error: err.message });
-    return res
-      .status(500)
-      .json({ message: "failed to register user", error: err.message });
+  if (!(username && fullname && password && email)) {
+    throw new ApiError(
+      400,
+      "Either usernaame,password,or email is not provided"
+    );
   }
+  const user = await User.create({ username, fullname, email, password });
+
+  if (!user) {
+    throw new ApiError(500, "Error occured while registering user to DB");
+  }
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, "User registeration is successful"));
 };
 
 export const loginUser = async (req, res) => {
-  try {
-    const { username, password } = req.body;
+  const { username, password } = req.body;
 
-    if (!(username && password)) {
-      return res
-        .status(400)
-        .json({ error: "Either/both username or password not received" });
-    }
-
-    const user = await User.findOne({ username }).select("+password");
-
-    if (!user) {
-      return res.status(400).json({ error: "User not found/exist" });
-    }
-
-    const passwordCompare = await bcrypt.compare(password, user.password);
-    if (!passwordCompare) {
-      return res.status(401).json({ error: "Invalid password" });
-    }
-
-    const accessToken = generateAccessToken({
-      _id: user._id,
-      username: user.username,
-    });
-    const refreshToken = generateRefreshToken({
-      _id: user._id,
-      username: user.username,
-    });
-    // console.log({ refreshToken, accessToken });
-
-    user.refreshToken = refreshToken;
-    await user.save();
-
-    //set user cookies
-    return res
-      .status(200)
-      .cookie("accessToken", accessToken, { maxAge: 15 * 60 * 1000 }) // exp for 15m but for test 60s
-      .cookie("refreshToken", refreshToken, {
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-      }) // exp for 30days
-      .json({
-        message: `${user.username} has logged in successfully`,
-      });
-  } catch (error) {
-    console.error({ error: error.message });
-    return res.status(500).json({
-      message: "Error occured while logging in user/ please try later",
-      error: error.message,
-    });
+  if (!(username && password)) {
+    throw new ApiError(400, "Either/both username or password not received");
   }
+
+  const user = await User.findOne({ username }).select("+password");
+
+  if (!user) {
+    throw new ApiError(404, "User not found/exist");
+  }
+
+  const passwordCompare = await bcrypt.compare(password, user.password);
+  if (!passwordCompare) {
+    throw new ApiError(401, "Invalid password");
+  }
+
+  const accessToken = generateAccessToken({
+    _id: user._id,
+    username: user.username,
+  });
+  const refreshToken = generateRefreshToken({
+    _id: user._id,
+    username: user.username,
+  });
+  // console.log({ refreshToken, accessToken });
+
+  user.refreshToken = refreshToken;
+  await user.save();
+
+  //set user cookies
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, { maxAge: 15 * 60 * 1000 }) // exp for 15m but for test 60s
+    .cookie("refreshToken", refreshToken, {
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    }) // exp for 30days
+    .json(
+      new ApiResponse(200, `${user.username} has logged in successfully`, {
+        username: user.username,
+        _id: user._id,
+      })
+    );
 };
