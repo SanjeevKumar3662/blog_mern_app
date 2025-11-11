@@ -3,7 +3,7 @@ import connectDB from "./db/db.js";
 
 import cors from "cors";
 import cookieParser from "cookie-parser";
-
+import userRouter from "./routes/user.routes.js";
 const app = express();
 
 app.use(express.json());
@@ -21,7 +21,12 @@ app.use(
 await connectDB();
 
 app.get("/", (req, res) => {
-  res.status(200).json("<h1>this is blog.api </h1>");
+  res
+    .status(200)
+    .json(
+      "<h1>this is blog.api that will be accessable from sanjeevkumar.site</h1>"
+    );
 });
+app.use("/api/v1/users", userRouter);
 
 export default app;

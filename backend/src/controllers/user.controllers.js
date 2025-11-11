@@ -1,7 +1,9 @@
 import { User } from "../models/user.models.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+
 export const generateAccessToken = (payload) => {
+  // console.log("playlod", payload);
   return jwt.sign(payload, process.env.ACCESS_KEY_SECRET, {
     expiresIn: process.env.ACCESS_KEY_EXPIRY,
   });
@@ -11,6 +13,39 @@ export const generateRefreshToken = (payload) => {
   return jwt.sign(payload, process.env.REFRESH_KEY_SECRET, {
     expiresIn: process.env.REFRESH_KEY_EXPIRY,
   });
+};
+
+export const refreshExpiredAccessToken = async (req, res) => {
+  const inputRefreshToken = req.cookies?.refreshToken;
+  if (!inputRefreshToken) {
+    return res.status(401).json({ error: "No refreshToken not received" });
+  }
+
+  const user = await User.findOne({ refreshToken: inputRefreshToken });
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorised request" });
+  }
+
+  const isTokenValid = jwt.verify(
+    inputRefreshToken,
+    process.env.REFRESH_KEY_SECRET
+  );
+  if (!isTokenValid) {
+    return res.status(401).json({ error: "token expired or not valid" });
+  }
+  //console.log("in refreshExpiredAccessToken", { isTokenValid });
+  //console.log("user", user);
+
+  const newAccessToken = generateAccessToken({
+    _id: user._id,
+    username: user.username,
+  });
+  return res
+    .status(201)
+    .cookie("accessToken", newAccessToken, {
+      maxAge: 15 * 60 * 1000,
+    })
+    .json({ message: "accessToken refreshed" });
 };
 
 export const registerUser = async (req, res) => {
