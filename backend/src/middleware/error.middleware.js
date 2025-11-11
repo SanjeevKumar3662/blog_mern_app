@@ -1,4 +1,4 @@
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/apiError.js";
 
 export const errorMiddleware = (err, req, res, next) => {
   // Log the error details (only in development)
