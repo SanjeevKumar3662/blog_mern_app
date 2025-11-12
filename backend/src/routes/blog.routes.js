@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { authenticateToken } from "../middleware/auth.middlewares.js";
-import { createBlog } from "../controllers/blog.controllers.js";
+import { createBlog, getAllBlogs } from "../controllers/blog.controllers.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
 const router = Router();
 
-router.post("/create", authenticateToken, createBlog);
-
+router.get("/all-blogs", asyncHandler(getAllBlogs));
+router.post("/create", authenticateToken, asyncHandler(createBlog));
 export default router;
