@@ -16,6 +16,10 @@ const blogSchema = new mongoose.Schema(
       required: true,
       maxlength: 10000,
     },
+    isPublic: {
+      type: Boolean,
+      default: true,
+    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
