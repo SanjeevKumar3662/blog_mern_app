@@ -7,7 +7,7 @@ export const asyncHandler = (fn) => async (req, res, next) => {
     } else {
       console.error(error.message);
     }
-    return res.status(error.status || 500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message,
     });
