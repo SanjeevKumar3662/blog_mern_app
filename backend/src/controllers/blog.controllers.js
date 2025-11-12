@@ -26,3 +26,16 @@ export const createBlog = async (req, res) => {
       new ApiResponse(201, "Blog Created Successfully", { id: blog._id, title })
     );
 };
+
+export const getAllBlogs = async (req, res) => {
+  const allBlogs = await Blog.find({ isPublic: true }).populate(
+    "user",
+    "username fullname  -_id"
+  );
+
+  if (!allBlogs) {
+    throw new ApiError(500, "Could not find any Blogs");
+  }
+
+  return res.status(200).json(new ApiResponse(200, "Success", allBlogs));
+};
