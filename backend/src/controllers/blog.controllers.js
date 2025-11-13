@@ -46,7 +46,8 @@ export const deleteBlog = async (req, res) => {
   if (!_id) {
     throw new ApiError(400, "Blog id is missing");
   }
-  const { deletedCount } = await Blog.deleteOne({ _id });
+
+  const { deletedCount } = await Blog.deleteOne({ _id, user: req.user._id });
   if (!deletedCount) {
     throw new ApiError(404, "Invalid id provided / content not found");
   }
@@ -64,13 +65,13 @@ export const updateBlog = async (req, res) => {
   }
 
   const { matchedCount, modifiedCount } = await Blog.updateOne(
-    { _id: _id },
+    { _id: _id, user: req.user._id },
     { $set: { title, description, content } }
   );
 
   // console.log("blog", blog);
   if (matchedCount === 0) {
-    throw new ApiError(404, "Blog not found");
+    throw new ApiError(404, "Blog with this user id does not exist ");
   }
 
   if (modifiedCount === 0) {
