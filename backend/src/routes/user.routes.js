@@ -9,7 +9,6 @@ import { asyncHandler } from "../middleware/asyncHandler.js";
 export const router = Router();
 
 router.route("/test").get(authenticateToken, (_, res) => {
-  console.log(_.user);
   return res.status(200).json("your router and auth is working");
 });
 
